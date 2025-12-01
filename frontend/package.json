@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -13,30 +14,34 @@
     "test:watch": "vitest",
     "coverage": "vitest run --coverage",
     "cy:open": "cypress open",
-    "cypress:run": "cypress run",
+    "cy:run": "cypress run",
     "e2e": "cypress run",
     "e2e:open": "cypress open",
-    "start:ci": "vite --port 5173"
+    "startci": "vite --port 5173"
   },
+
   "dependencies": {
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },
+
   "devDependencies": {
     "@eslint/js": "^9.39.1",
-    "@testing-library/jest-dom": "^6.9.1",
-    "@testing-library/react": "^16.3.0",
-    "@types/react": "^19.2.2",
-    "@types/react-dom": "^19.2.2",
-    "@vitejs/plugin-react": "^5.1.1",
-    "@vitest/coverage-v8": "^4.0.8",
-    "cypress": "^15.6.0",
-    "eslint": "^9.39.1",
-    "eslint-plugin-react-hooks": "^5.2.0",
-    "eslint-plugin-react-refresh": "^0.4.24",
-    "globals": "^16.5.0",
-    "happy-dom": "^20.0.10",
-    "vite": "^7.2.2",
-    "vitest": "^4.0.14"
+  "@testing-library/jest-dom": "^6.9.1",
+  "@testing-library/react": "^16.3.0",
+  "@types/react": "^19.2.2",
+  "@types/react-dom": "^19.2.2",
+  "@vitejs/plugin-react": "^5.1.1",
+
+  "vitest": "4.0.8",
+  "@vitest/coverage-v8": "4.0.8",
+
+  "cypress": "^15.6.0",
+  "eslint": "^9.39.1",
+  "eslint-plugin-react-hooks": "^5.2.0",
+  "eslint-plugin-react-refresh": "^0.4.24",
+  "globals": "^16.5.0",
+  "happy-dom": "^12.0.0",
+  "vite": "^7.2.2"
   }
 }
