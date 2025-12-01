@@ -7,7 +7,7 @@ pool:
 variables:
   - name: NODE_VERSION
     value: '20'
-  - group: SONAR_TOKEN   # (SONAR_TOKEN, SONAR_ORG, SONAR_PROJECT_KEY)
+  - group: SONAR_TOKEN   # SONAR_ORG, SONAR_PROJECT_KEY, SONAR_TOKEN
 
 steps:
   - checkout: self
@@ -24,23 +24,32 @@ steps:
       npm test
     displayName: Backend • Jest + Coverage
 
+  # Detectar si existe el archivo de cobertura para habilitar publicación
+  - script: |
+      if [ -f backend/coverage/cobertura-coverage.xml ]; then
+        echo "##vso[task.setvariable variable=PublishCoverage]true"
+      else
+        echo "##vso[task.setvariable variable=PublishCoverage]false"
+      fi
+    displayName: Detectar archivo de cobertura
+
   - task: PublishCodeCoverageResults@2
-    displayName: Backend • Publicar Coverage
-    condition: exists('backend/coverage/cobertura-coverage.xml')
+    displayName: Backend • Publicar Coverage (si existe)
+    condition: and(succeeded(), eq(variables['PublishCoverage'], 'true'))
     inputs:
       codeCoverageTool: Cobertura
       summaryFileLocation: 'backend/coverage/cobertura-coverage.xml'
       reportDirectory: 'backend/coverage'
 
-  # ==== Frontend: Vitest (si está configurado) ====
+  # ==== Frontend: Vitest (opcional) ====
   - script: |
       cd frontend
       npm ci || npm install
       npm run test || echo "Sin tests de frontend configurados"
     displayName: Frontend • Vitest
 
-  # ==== SonarCloud ====
-  - task: SonarCloudPrepare@1
+  # ==== SonarCloud (usa tareas v2) ====
+  - task: SonarCloudPrepare@2
     displayName: Sonar • Prepare
     inputs:
       SonarCloud: 'SonarCloud'
@@ -59,7 +68,7 @@ steps:
         -Dsonar.login=$(SONAR_TOKEN)
     displayName: Sonar • Analyze
 
-  - task: SonarCloudPublish@1
+  - task: SonarCloudPublish@2
     displayName: Sonar • Quality Gate
     inputs:
       pollingTimeoutSec: '300'
