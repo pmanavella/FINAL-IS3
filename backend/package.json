@@ -9,6 +9,10 @@
     "test": "NODE_ENV=test jest --coverage --config jest.config.cjs",
     "test:cov": "NODE_ENV=test jest --coverage --config jest.config.cjs"
   },
+  "jest": {
+  "coverageReporters": ["text", "lcov"],
+  "coverageDirectory": "./coverage"
+},
   "keywords": [],
   "author": "",
   "license": "ISC",

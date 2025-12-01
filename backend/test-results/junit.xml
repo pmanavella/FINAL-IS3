@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="jest tests" tests="15" failures="0" errors="0" time="0.415">
+  <testsuite name="Health" errors="0" failures="0" skipped="0" timestamp="2025-12-01T21:15:25" time="0.242" tests="1">
+    <testcase classname="Health GET /health -&gt; 200" name="Health GET /health -&gt; 200" time="0.012">
+    </testcase>
+  </testsuite>
+  <testsuite name="Books API" errors="0" failures="0" skipped="0" timestamp="2025-12-01T21:15:26" time="0.06" tests="8">
+    <testcase classname="Books API GET /api/books devuelve lista" name="Books API GET /api/books devuelve lista" time="0.004">
+    </testcase>
+    <testcase classname="Books API GET /books también funciona (ruta alternativa)" name="Books API GET /books también funciona (ruta alternativa)" time="0.002">
+    </testcase>
+    <testcase classname="Books API GET /api/books filtra por q y ordena" name="Books API GET /api/books filtra por q y ordena" time="0.002">
+    </testcase>
+    <testcase classname="Books API POST /api/books valida faltantes" name="Books API POST /api/books valida faltantes" time="0.009">
+    </testcase>
+    <testcase classname="Books API POST /api/books crea libro" name="Books API POST /api/books crea libro" time="0.002">
+    </testcase>
+    <testcase classname="Books API PUT /api/books/:id actualiza" name="Books API PUT /api/books/:id actualiza" time="0.001">
+    </testcase>
+    <testcase classname="Books API DELETE /api/books/:id elimina" name="Books API DELETE /api/books/:id elimina" time="0.001">
+    </testcase>
+    <testcase classname="Books API DELETE /api/books/:id 404 si no existe" name="Books API DELETE /api/books/:id 404 si no existe" time="0.003">
+    </testcase>
+  </testsuite>
+  <testsuite name="Loans &amp; Sales" errors="0" failures="0" skipped="0" timestamp="2025-12-01T21:15:26" time="0.042" tests="5">
+    <testcase classname="Loans &amp; Sales POST /api/books/:id/loan falla si sin stock" name="Loans &amp; Sales POST /api/books/:id/loan falla si sin stock" time="0.003">
+    </testcase>
+    <testcase classname="Loans &amp; Sales POST /api/books/:id/loan OK" name="Loans &amp; Sales POST /api/books/:id/loan OK" time="0.002">
+    </testcase>
+    <testcase classname="Loans &amp; Sales POST /api/books/:id/sell stock insuficiente" name="Loans &amp; Sales POST /api/books/:id/sell stock insuficiente" time="0.001">
+    </testcase>
+    <testcase classname="Loans &amp; Sales POST /api/books/:id/sell OK" name="Loans &amp; Sales POST /api/books/:id/sell OK" time="0.002">
+    </testcase>
+    <testcase classname="Loans &amp; Sales GET /api/loans y /api/sales listan" name="Loans &amp; Sales GET /api/loans y /api/sales listan" time="0.002">
+    </testcase>
+  </testsuite>
+  <testsuite name="SonarCloud backend dummy test" errors="0" failures="0" skipped="0" timestamp="2025-12-01T21:15:26" time="0.012" tests="1">
+    <testcase classname="SonarCloud backend dummy test dummy ok" name="SonarCloud backend dummy test dummy ok" time="0">
+    </testcase>
+  </testsuite>
+</testsuites>
