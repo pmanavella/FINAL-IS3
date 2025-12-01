@@ -1,0 +1,12 @@
+# Node
+node_modules/
+
+# Backend env files
+.env
+.env.local
+
+# Logs
+*.log
+
+# Docker artifacts
+*.pid
