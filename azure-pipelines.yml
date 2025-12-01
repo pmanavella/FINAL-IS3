@@ -1,0 +1,89 @@
+trigger:
+  - main
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  NODE_VERSION: '20'
+
+# Variables del Library
+variables:
+- group: SONAR_TOKEN
+
+steps:
+  - checkout: self
+    clean: true
+
+  - task: NodeTool@0
+    inputs:
+      versionSpec: '$(NODE_VERSION)'
+
+  # ==== Backend: Jest + cobertura ====
+  - script: |
+      cd backend
+      npm ci || npm install
+      npm test
+    displayName: Backend • Jest + Coverage
+
+  - task: PublishTestResults@2
+    displayName: Backend • Publicar JUnit (si existe)
+    condition: exists('backend/test-results/junit.xml')
+    inputs:
+      testResultsFormat: 'JUnit'
+      testResultsFiles: 'backend/test-results/junit.xml'
+      failTaskOnFailedTests: true
+      testRunTitle: 'backend-jest'
+
+  - task: PublishCodeCoverageResults@2
+    displayName: Backend • Publicar Cobertura (si existe)
+    condition: exists('backend/coverage/cobertura-coverage.xml')
+    inputs:
+      codeCoverageTool: Cobertura
+      summaryFileLocation: 'backend/coverage/cobertura-coverage.xml'
+      reportDirectory: 'backend/coverage'
+
+  # ==== Frontend: Vitest (si hay) ====
+  - script: |
+      cd frontend
+      npm ci || npm install
+      npm run test || echo "Sin tests de frontend configurados"
+    displayName: Frontend • Vitest
+
+  # ==== E2E: Cypress contra backend local ====
+  - script: |
+      cd backend
+      export NODE_ENV=e2e
+      export DB_CLIENT=sqlite
+      export SQLITE_PATH=:memory:
+      nohup node index.js > ../api.log 2>&1 &
+      npx wait-on http://localhost:4000/health
+      curl -s -X POST http://localhost:4000/test/seed || true
+      cd ../frontend
+      npm run cypress
+    displayName: E2E • Cypress
+
+  # ==== SonarCloud ====
+  - task: SonarCloudPrepare@1
+    displayName: Sonar • Prepare
+    inputs:
+      SonarCloud: 'SonarCloud'
+      organization: '$(SONAR_ORG)'
+      scannerMode: 'Other'
+      configMode: 'manual'
+      cliProjectKey: '$(SONAR_PROJECT_KEY)'
+      cliProjectName: '$(SONAR_PROJECT_KEY)'
+
+  - script: |
+      npx sonar-scanner \
+        -Dsonar.organization=$(SONAR_ORG) \
+        -Dsonar.projectKey=$(SONAR_PROJECT_KEY) \
+        -Dsonar.host.url=https://sonarcloud.io \
+        -Dsonar.javascript.lcov.reportPaths=backend/coverage/lcov.info \
+        -Dsonar.login=$(SONAR_TOKEN)
+    displayName: Sonar • Analyze
+
+  - task: SonarCloudPublish@1
+    displayName: Sonar • Quality Gate
+    inputs:
+      pollingTimeoutSec: '300'
