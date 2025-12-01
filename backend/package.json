@@ -2,12 +2,13 @@
   "name": "backend",
   "version": "1.0.0",
   "main": "index.js",
-  "scripts": {
-    "dev": "nodemon index.js",
-    "start": "node index.js",
-    "test": "cross-env NODE_ENV=test DB_CLIENT=sqlite SQLITE_PATH=:memory: jest --runInBand",
-    "test:cov": "cross-env NODE_ENV=test DB_CLIENT=sqlite SQLITE_PATH=:memory: jest --coverage --runInBand"
-  },
+"scripts": {
+  "dev": "nodemon index.js",
+  "start": "node index.js",
+  "start:ci": "node index.js",
+  "test": "NODE_ENV=test jest --coverage --config jest.config.cjs",
+  "test:cov": "NODE_ENV=test jest --coverage --config jest.config.cjs"
+},
   "keywords": [],
   "author": "",
   "license": "ISC",

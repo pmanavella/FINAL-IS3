@@ -6,6 +6,8 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+app.get('/health', (_req, res) => res.sendStatus(200));
+
 // ejemplo: app.get('/api/health', (req,res)=>res.json({ok:true}));
 /* monta aquí todas tus rutas /api/books, /api/loans, /api/sales */
 

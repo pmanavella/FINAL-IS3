@@ -9,6 +9,8 @@ const PORT = process.env.PORT || 4000;
 app.use(cors());
 app.use(express.json());
 
+app.get("/health", (_req, res) => res.sendStatus(200));
+
 app.get("/", (req, res) => {
   const env = process.env.NODE_ENV || "local";
   res.send(`Backend funcionando - ${env.toUpperCase()}`);
