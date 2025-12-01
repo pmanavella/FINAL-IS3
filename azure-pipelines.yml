@@ -5,10 +5,9 @@ pool:
   vmImage: ubuntu-latest
 
 variables:
-  NODE_VERSION: '20'
-
-# Importa el grupo de variables SONAR_TOKEN (ORG, PROJECT_KEY, TOKEN)
-- group: SONAR_TOKEN
+  - name: NODE_VERSION
+    value: '20'
+  - group: SONAR_TOKEN   # (SONAR_TOKEN, SONAR_ORG, SONAR_PROJECT_KEY)
 
 steps:
   - checkout: self
@@ -18,7 +17,7 @@ steps:
     inputs:
       versionSpec: '$(NODE_VERSION)'
 
-  # ==== Backend: Tests + Coverage ====
+  # ==== Backend: Jest + Coverage ====
   - script: |
       cd backend
       npm ci || npm install
@@ -27,13 +26,13 @@ steps:
 
   - task: PublishCodeCoverageResults@2
     displayName: Backend • Publicar Coverage
+    condition: exists('backend/coverage/cobertura-coverage.xml')
     inputs:
       codeCoverageTool: Cobertura
       summaryFileLocation: 'backend/coverage/cobertura-coverage.xml'
       reportDirectory: 'backend/coverage'
-    condition: succeededOrFailed()
 
-  # ==== Frontend: Tests (si los tenés) ====
+  # ==== Frontend: Vitest (si está configurado) ====
   - script: |
       cd frontend
       npm ci || npm install
@@ -41,9 +40,8 @@ steps:
     displayName: Frontend • Vitest
 
   # ==== SonarCloud ====
-
   - task: SonarCloudPrepare@1
-    displayName: SonarCloud • Prepare
+    displayName: Sonar • Prepare
     inputs:
       SonarCloud: 'SonarCloud'
       organization: '$(SONAR_ORG)'
@@ -59,9 +57,9 @@ steps:
         -Dsonar.host.url=https://sonarcloud.io \
         -Dsonar.javascript.lcov.reportPaths=backend/coverage/lcov.info \
         -Dsonar.login=$(SONAR_TOKEN)
-    displayName: SonarCloud • Analyze
+    displayName: Sonar • Analyze
 
   - task: SonarCloudPublish@1
-    displayName: SonarCloud • Publish Quality Gate
+    displayName: Sonar • Quality Gate
     inputs:
       pollingTimeoutSec: '300'
