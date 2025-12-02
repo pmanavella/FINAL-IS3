@@ -14,7 +14,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # importante para análisis de SonarCloud
+          fetch-depth: 0  # importante para Sonar
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -37,13 +37,13 @@ jobs:
 
       - name: Frontend coverage (Vitest)
         working-directory: frontend
-        run: npm run coverage
+        run: npm run test:cov
 
       # ---------- SonarCloud ----------
       - name: Setup Java (for Sonar scanner)
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
+          distribution: temurin
           java-version: '17'
 
       - name: SonarCloud Scan
@@ -53,3 +53,6 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
           projectBaseDir: .
+          args: >
+            -Dsonar.projectVersion=${{ github.run_number }}
+            -Dsonar.branch.name=${{ github.ref_name }}
