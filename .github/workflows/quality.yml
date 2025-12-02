@@ -55,4 +55,4 @@ jobs:
           projectBaseDir: .
           args: >
             -Dsonar.projectVersion=${{ github.run_number }}
-            -Dsonar.branch.name=${{ github.ref_name }}
+  
