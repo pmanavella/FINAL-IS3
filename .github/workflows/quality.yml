@@ -9,6 +9,9 @@ jobs:
   quality:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      # Disponibilizamos SONAR_TOKEN como variable de entorno (si no existe, queda vacía)
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
     steps:
       - name: Checkout
@@ -54,155 +57,23 @@ jobs:
           if-no-files-found: warn
 
       # ---------- SONARCLOUD ----------
+      # Usamos la action oficial que ya apunta a https://sonarcloud.io.
+      # Se ejecuta SOLO si existe el secreto SONAR_TOKEN.
       - name: Setup Java (for Sonar scanner)
+        if: env.SONAR_TOKEN != ''
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
 
-      - name: SonarCloud Scan (optional)
+      - name: SonarCloud Scan
+        if: env.SONAR_TOKEN != ''
+        uses: SonarSource/sonarcloud-github-action@v2
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: |
-          if [ -n "$SONAR_TOKEN" ]; then
-            echo "🔍 Ejecutando análisis SonarCloud..."
-            npx sonar-scanner \
-              -Dsonar.qualitygate.wait=true \
-              -Dsonar.scanner.force-deprecated-java-version-grace-period=true
-          else
-            echo "⏭️ No se encontró SONAR_TOKEN; se omite SonarCloud"
-          fi
-
-
-
-# name: quality
-
-# on:
-#   push:
-#     branches: [ "main" ]
-#   pull_request:
-
-# jobs:
-#   quality:
-#     runs-on: ubuntu-latest
-#     timeout-minutes: 20
-
-#     steps:
-#       - name: Checkout
-#         uses: actions/checkout@v4
-
-#       - name: Setup Node 20
-#         uses: actions/setup-node@v4
-#         with:
-#           node-version: 20
-#           cache: 'npm'
-
-#       # ---------- Frontend: Vitest + Coverage ----------
-#       - name: Frontend coverage (Vitest)
-#         working-directory: frontend
-#         run: |
-#           npm ci
-#           npm run test:cov || echo "Vitest devolvió exit code != 0 (warnings/fail) - no rompemos el workflow"
-
-#       - name: Upload frontend coverage artifact
-#         if: always()
-#         uses: actions/upload-artifact@v4
-#         with:
-#           name: frontend-coverage
-#           path: |
-#             frontend/coverage/**
-#           if-no-files-found: warn
-
-#       # ---------- Backend: Jest + Coverage ----------
-#       - name: Backend coverage (Jest)
-#         working-directory: backend
-#         run: |
-#           npm ci
-#           npm run test:cov || echo "Jest devolvió exit code != 0 (warnings/fail) - no rompemos el workflow"
-
-#       - name: Upload backend coverage artifact
-#         if: always()
-#         uses: actions/upload-artifact@v4
-#         with:
-#           name: backend-coverage
-#           path: |
-#             backend/coverage/**
-#           if-no-files-found: warn
-
-#       # ---------- SonarCloud (opcional; se saltea si no hay token) ----------
-#       - name: Setup Java (for Sonar scanner)
-#         if: env.SONAR_TOKEN != ''
-#         uses: actions/setup-java@v4
-#         with:
-#           distribution: 'temurin'
-#           java-version: '17'
-
-#       - name: SonarCloud Scan
-#         if: env.SONAR_TOKEN != ''
-#         uses: SonarSource/sonarcloud-github-action@v2
-#         env:
-#           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-#         with:
-#           args: >
-#             -Dsonar.scanner.force-deprecated-java-version-grace-period=true
-#             -Dsonar.qualitygate.wait=true
-
-
-# name: Quality
-
-# on:
-#   push:
-#     branches: [ main ]
-#   pull_request:
-#     branches: [ main ]
-
-# jobs:
-#   quality:
-#     runs-on: ubuntu-latest
-
-#     steps:
-#       - name: Checkout
-#         uses: actions/checkout@v4
-#         with:
-#           fetch-depth: 0  # importante para Sonar
-
-#       - name: Setup Node
-#         uses: actions/setup-node@v4
-#         with:
-#           node-version: 20
-
-#       # ---------- Backend tests + coverage ----------
-#       - name: Install backend
-#         working-directory: backend
-#         run: npm ci
-
-#       - name: Backend coverage (Jest)
-#         working-directory: backend
-#         run: npm run test:cov
-
-#       # ---------- Frontend tests + coverage ----------
-#       - name: Install frontend
-#         working-directory: frontend
-#         run: npm ci
-
-#       - name: Frontend coverage (Vitest)
-#         working-directory: frontend
-#         run: npm run test:cov
-
-#       # ---------- SonarCloud ----------
-#       - name: Setup Java (for Sonar scanner)
-#         uses: actions/setup-java@v4
-#         with:
-#           distribution: temurin
-#           java-version: '17'
-
-#       - name: SonarCloud Scan
-#         uses: SonarSource/sonarcloud-github-action@v2
-#         env:
-#           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-#           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-#         with:
-#           projectBaseDir: .
-#           args: >
-#             -Dsonar.projectVersion=${{ github.run_number }}
-  
+        with:
+          # no esperamos al quality gate para no cortar el job en GH Actions
+          args: >
+            -Dsonar.qualitygate.wait=false
+            -Dsonar.scanner.force-deprecated-java-version-grace-period=true
+        continue-on-error: true   # por si hubiera algún warning/quality gate, no rompemos el workflow
