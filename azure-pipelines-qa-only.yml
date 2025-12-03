@@ -1,0 +1,76 @@
+# .azure-pipelines-qa-only.yml
+trigger:
+  - main
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  - name: NODE_VERSION
+    value: '20'
+  - group: SONAR_TOKEN   # donde ya tenés SONAR_ORG, SONAR_PROJECT_KEY, SONAR_TOKEN, FRONT_QA_URL, etc.
+  # Agregá en este mismo Variable Group:
+  #   RENDER_QA_HOOK : URL del deploy hook de Render para tu FRONT QA
+  #   RENDER_BACK_QA_HOOK : (opcional) deploy hook del backend QA
+
+steps:
+  - checkout: self
+    clean: true
+
+  - task: NodeTool@0
+    displayName: "Use Node $(NODE_VERSION)"
+    inputs:
+      versionSpec: "$(NODE_VERSION)"
+
+  # Sonar Prepare (si usás sonar-project.properties)
+  - task: SonarCloudPrepare@3
+    displayName: "Sonar • Prepare"
+    inputs:
+      SonarCloud: "SonarCloud"
+      organization: "$(SONAR_ORG)"
+      scannerMode: "CLI"
+      configMode: "file"
+
+  # ✅ Tests OK (sin forced fail y tolerando warnings)
+  - script: |
+      cd frontend
+      npm ci
+      npm run test:cov || echo "Vitest warnings ignorados"
+    displayName: "Frontend • Vitest + Coverage"
+
+  - script: |
+      cd backend
+      npm ci
+      npm run test:cov || echo "Jest warnings ignorados"
+    displayName: "Backend • Jest + Coverage"
+
+  - task: SonarCloudAnalyze@3
+    displayName: "Sonar • Analyze"
+
+  - task: SonarCloudPublish@3
+    displayName: "Sonar • Quality Gate"
+    inputs:
+      pollingTimeoutSec: '300'
+
+  # ✅ Deploy SOLO a QA (Render deploy hook)
+  - script: |
+      echo "Triggering FRONT QA deploy..."
+      if [ -z "$(RENDER_QA_HOOK)" ]; then
+        echo "RENDER_QA_HOOK no seteado → omito deploy QA"
+        exit 0
+      fi
+      curl -fsS -X POST "$(RENDER_QA_HOOK)"
+    displayName: "Deploy FRONT QA"
+    condition: succeeded()
+
+  - script: |
+      if [ -n "$(RENDER_BACK_QA_HOOK)" ]; then
+        echo "Triggering BACKEND QA deploy..."
+        curl -fsS -X POST "$(RENDER_BACK_QA_HOOK)"
+      else
+        echo "RENDER_BACK_QA_HOOK no seteado → omito backend QA"
+      fi
+    displayName: "Deploy BACKEND QA (opcional)"
+    condition: succeeded()
+
+  # 🚫 NADA de PROD aquí

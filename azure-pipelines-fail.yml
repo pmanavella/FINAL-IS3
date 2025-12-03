@@ -1,0 +1,41 @@
+# .azure-pipelines-fail.yml
+trigger:
+  - main
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  - name: NODE_VERSION
+    value: '20'
+
+steps:
+  - checkout: self
+    clean: true
+
+  - task: NodeTool@0
+    displayName: "Use Node $(NODE_VERSION)"
+    inputs:
+      versionSpec: "$(NODE_VERSION)"
+
+  # 🔴 Inyecta un test que falla (solo para este pipeline)
+  - script: |
+      mkdir -p frontend/src/__tests__
+      printf "import { describe, it, expect } from 'vitest';\ndescribe('forced fail', () => { it('should fail', () => { expect(1).toBe(2) }) })\n" > frontend/src/__tests__/forced.fail.test.js
+
+      mkdir -p backend/__tests__
+      printf "describe('forced fail', () => { test('should fail', () => { expect(1).toBe(2) }) })\n" > backend/__tests__/forced.fail.test.js
+    displayName: "💣 Inyectar test que falla"
+
+  # ⛔️ Ejecuta tests SIN tolerar errores (sin '|| echo')
+  - script: |
+      cd frontend
+      npm ci
+      npm run test:cov
+    displayName: "Frontend • Vitest + Coverage (debe fallar)"
+
+  - script: |
+      cd backend
+      npm ci
+      npm run test:cov
+    displayName: "Backend • Jest + Coverage (debe fallar)"
