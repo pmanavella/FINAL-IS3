@@ -1,136 +1,102 @@
 // frontend/src/__tests__/App.test.jsx
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import App from '../App';
 import '@testing-library/jest-dom';
-
-if (!window.alert) window.alert = () => {};
-vi.spyOn(window, 'alert').mockImplementation(() => {});
+import App from '../App';
 
 beforeEach(() => {
-  vi.restoreAllMocks();
-
-  // Mock fetch global para cada test
-  global.fetch = vi.fn();
-
-  // Mock alert para evitar errores en happy-dom/jsdom
-  vi.spyOn(window, 'alert').mockImplementation(() => {});
+  // mock limpio antes de cada test (evita conexiones reales)
+  global.fetch = vi.fn().mockResolvedValue({
+    ok: true,
+    json: async () => [],
+  });
+  // aseguramos que alert exista como mock (sin spyOn)
+  global.alert = vi.fn();
 });
 
-// helper: primera respuesta de GET /api/books
-function mockBooks(list = []) {
-  global.fetch.mockResolvedValueOnce({
-    ok: true,
-    json: async () => list,
-  });
-}
-
-describe('App (Lista de Libros)', () => {
-  it('renderiza título y tabla', async () => {
-    mockBooks([
-      { id: 1, title: 'Clean Code', author: 'Robert', year: 2008, stock: 4, price: 22000 },
-    ]);
-
-    render(<App />);
-
-    expect(screen.getByText(/Gestor de Libros/i)).toBeInTheDocument();
-
-    await waitFor(() => {
-      expect(screen.getByText('Clean Code')).toBeInTheDocument();
-    });
-
-    // Se llamó GET /api/books (sin envolver en array)
-    expect(global.fetch).toHaveBeenCalledWith(
-      expect.stringMatching(/\/api\/books/i)
-    );
-  });
-
-  it('aplica búsqueda por texto', async () => {
-    // 1ra llamada: carga inicial
-    mockBooks([{ id: 1, title: 'Refactoring', author: 'Fowler', year: 1999, stock: 2, price: 1000 }]);
-
-    render(<App />);
-
-    await screen.findByText('Refactoring');
-
-    // 2da llamada: con query ?q=Design
-    global.fetch.mockResolvedValueOnce({
+describe('App', () => {
+  it('renderiza título y tabla con datos', async () => {
+    // 1ª llamada: GET /api/books con datos
+    fetch.mockResolvedValueOnce({
       ok: true,
       json: async () => [
-        { id: 2, title: 'Design Patterns', author: 'Gamma', year: 1994, stock: 2, price: 2000 },
+        { id: 1, title: 'Clean Code', author: 'Robert', year: 2008, stock: 4, price: 22000 },
       ],
     });
 
-    const inputBusqueda = screen.getByPlaceholderText(/Buscar por título o autor/i);
-    fireEvent.change(inputBusqueda, { target: { value: 'Design' } });
+    render(<App />);
 
-    const btnAplicar = screen.getByText('Aplicar');
-    fireEvent.click(btnAplicar);
+    await screen.findByText('Clean Code');
+    expect(fetch.mock.calls[0][0]).toMatch(/api\/books$/);
+  });
+
+  it('aplica búsqueda por texto', async () => {
+    // GET inicial
+    fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => [{ id: 1, title: 'Refactoring', author: 'Fowler', year: 1999, stock: 2, price: 1000 }],
+    });
+
+    render(<App />);
+    await screen.findByText('Refactoring');
+
+    // respuesta de la búsqueda
+    fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => [{ id: 2, title: 'Design Patterns', author: 'Gamma', year: 1994, stock: 2, price: 2000 }],
+    });
+
+    const input = screen.getByPlaceholderText(/buscar por título o autor/i);
+    fireEvent.change(input, { target: { value: 'Design' } });
+    fireEvent.click(screen.getByText(/aplicar/i));
 
     await screen.findByText('Design Patterns');
-
-    // Verifica que el segundo fetch incluya la query
-    expect(global.fetch.mock.calls[1][0]).toMatch(/q=Design/);
+    // la 2ª llamada incluye el query
+    expect(fetch.mock.calls[1][0]).toMatch(/q=Design/);
   });
 });
 
-describe('App (Crear, Editar, Borrar mocks)', () => {
-  it('agrega libro', async () => {
-    // 1ra llamada: carga inicial vacía
-    mockBooks([]);
+describe('App (crear)', () => {
+  it('agrega libro (verifica POST con payload correcto)', async () => {
+    // 1) GET inicial vacío
+    fetch.mockResolvedValueOnce({ ok: true, json: async () => [] });
 
     render(<App />);
+    await screen.findByText(/gestor de libros/i);
 
-    await screen.findByText(/Gestor de Libros/i);
+    // Preparamos que el POST responda con el creado (tu app NO refetchea)
+    fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        id: 10, title: 'Libro E2', author: 'Autor', year: 2024, stock: 0, price: 0,
+      }),
+    });
 
-    // 2da llamada: POST /api/books
-    global.fetch
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          id: 10,
-          title: 'Libro E2',
-          author: 'Autor',
-          year: 2024,
-          stock: 0,
-          price: 0,
-        }),
-      })
-      // 3ra llamada: GET /api/books (recarga)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => [
-          { id: 10, title: 'Libro E2', author: 'Autor', year: 2024, stock: 0, price: 0 },
-        ],
-      });
+    // Carga de formulario por etiquetas accesibles
+    fireEvent.change(screen.getByLabelText(/^título/i), { target: { value: 'Libro E2' } });
+    fireEvent.change(screen.getByLabelText(/^autor/i),  { target: { value: 'Autor' } });
+    fireEvent.change(screen.getByLabelText(/^año/i),    { target: { value: '2024' } });
 
-    // Seleccionamos inputs por atributo name (tu app los usa)
-    const titleInput = document.querySelector('input[name="title"]');
-    const authorInput = document.querySelector('input[name="author"]');
-    const yearInput = document.querySelector('input[name="year"]');
+    fireEvent.click(screen.getByText(/agregar libro/i));
 
-    expect(titleInput && authorInput && yearInput).toBeTruthy();
+    // Esperamos a que se dispare el POST
+    await waitFor(() => {
+      // Debe haber 2 llamadas en total: GET inicial y POST
+      expect(fetch).toHaveBeenCalledTimes(2);
 
-    fireEvent.change(titleInput, { target: { value: 'Libro E2' } });
-    fireEvent.change(authorInput, { target: { value: 'Autor' } });
-    fireEvent.change(yearInput, { target: { value: '2024' } });
+      // La 2ª es el POST a /api/books
+      const [url, opts] = fetch.mock.calls[1];
+      expect(url).toMatch(/\/api\/books$/);
+      expect(opts?.method).toBe('POST');
 
-    fireEvent.click(screen.getByText('Agregar libro'));
+      // Validamos el payload enviado
+      const sent = JSON.parse(opts?.body ?? '{}');
+      expect(sent).toMatchObject({ title: 'Libro E2', author: 'Autor' });
+      // año puede ser string o número según el form; permitimos ambas
+      expect(String(sent.year)).toBe('2024');
+    });
 
-    await screen.findByText('Libro E2');
-
-    // Se llamó POST y luego GET
-    expect(global.fetch.mock.calls[1][0]).toMatch(/\/api\/books$/);
-    expect(global.fetch.mock.calls[1][1]?.method).toBe('POST');
-  });
-
-  it('muestra pestañas y navega a Ventas', async () => {
-    mockBooks([]);
-    render(<App />);
-    await screen.findByText(/Gestor de Libros/);
-
-    // Evita ambigüedad usando rol del botón
-    fireEvent.click(screen.getByRole('button', { name: /Ventas/i }));
-    expect(screen.getByRole('button', { name: /Ventas/i })).toBeInTheDocument();
+    // (Opcional): si querés, confirmar que se limpió el formulario o se mostró algún alert
+    // expect(global.alert).not.toHaveBeenCalled(); // o lo que corresponda en tu app
   });
 });

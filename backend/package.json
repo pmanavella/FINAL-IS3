@@ -10,8 +10,16 @@
     "test:cov": "NODE_ENV=test jest --coverage --config jest.config.cjs"
   },
   "jest": {
-  "coverageReporters": ["text", "lcov"],
-  "coverageDirectory": "./coverage"
+  "coverageReporters": ["text", "lcov", "cobertura"],
+  "coverageDirectory": "./coverage",
+  "coverageThreshold": {
+    "global": {
+      "branches": 70,
+      "functions": 70,
+      "lines": 70,
+      "statements": 70
+    }
+  }
 },
   "keywords": [],
   "author": "",

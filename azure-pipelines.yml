@@ -7,7 +7,8 @@ pool:
 variables:
   - name: NODE_VERSION
     value: '20'
-  - group: SONAR_TOKEN   # SONAR_ORG, SONAR_PROJECT_KEY, SONAR_TOKEN
+  # Variable group con SONAR_ORG, SONAR_PROJECT_KEY, SONAR_TOKEN (si lo usás)
+  - group: SONAR_TOKEN
 
 steps:
   - checkout: self
@@ -16,59 +17,63 @@ steps:
   - task: NodeTool@0
     inputs:
       versionSpec: '$(NODE_VERSION)'
+    displayName: Use Node $(NODE_VERSION)
 
-  # ==== Backend: Jest + Coverage ====
-  - script: |
-      cd backend
-      npm ci || npm install
-      npm test
-    displayName: Backend • Jest + Coverage
+  # --- Sonar: preparar (lee sonar-project.properties de la raíz) ---
+  - task: SonarCloudPrepare@3
+    displayName: Sonar • Prepare
+    inputs:
+      SonarCloud: 'SonarCloud'      # nombre de tu Service Connection
+      organization: '$(SONAR_ORG)'
+      scannerMode: 'CLI'
+      configMode: 'file'             # usa sonar-project.properties
 
-  # Detectar si existe el archivo de cobertura para habilitar publicación
+  # --- Frontend: Vitest + Coverage ---
   - script: |
-      if [ -f backend/coverage/cobertura-coverage.xml ]; then
-        echo "##vso[task.setvariable variable=PublishCoverage]true"
-      else
-        echo "##vso[task.setvariable variable=PublishCoverage]false"
-      fi
-    displayName: Detectar archivo de cobertura
+      cd frontend
+      npm ci
+      npm run test:cov               # vitest run --coverage (lcov + cobertura)
+    displayName: Frontend • Vitest + Coverage
 
   - task: PublishCodeCoverageResults@2
-    displayName: Backend • Publicar Coverage (si existe)
-    condition: and(succeeded(), eq(variables['PublishCoverage'], 'true'))
+    displayName: Frontend • Publicar Coverage
+    inputs:
+      codeCoverageTool: Cobertura
+      summaryFileLocation: 'frontend/coverage/cobertura-coverage.xml'
+      reportDirectory: 'frontend/coverage'
+    condition: succeededOrFailed()
+
+  # --- Backend: Jest + Coverage ---
+  - script: |
+      cd backend
+      npm ci
+      npm run test:cov               # jest --coverage (lcov + cobertura)
+    displayName: Backend • Jest + Coverage
+
+  - task: PublishCodeCoverageResults@2
+    displayName: Backend • Publicar Coverage
     inputs:
       codeCoverageTool: Cobertura
       summaryFileLocation: 'backend/coverage/cobertura-coverage.xml'
       reportDirectory: 'backend/coverage'
+    condition: succeededOrFailed()
 
-  # ==== Frontend: Vitest (opcional) ====
-  - script: |
-      cd frontend
-      npm ci || npm install
-      npm run test || echo "Sin tests de frontend configurados"
-    displayName: Frontend • Vitest
-
-  # ==== SonarCloud (usa tareas v2) ====
-  - task: SonarCloudPrepare@2
-    displayName: Sonar • Prepare
-    inputs:
-      SonarCloud: 'SonarCloud'
-      organization: '$(SONAR_ORG)'
-      scannerMode: 'Other'
-      configMode: 'manual'
-      cliProjectKey: '$(SONAR_PROJECT_KEY)'
-      cliProjectName: '$(SONAR_PROJECT_KEY)'
-
-  - script: |
-      npx sonar-scanner \
-        -Dsonar.organization=$(SONAR_ORG) \
-        -Dsonar.projectKey=$(SONAR_PROJECT_KEY) \
-        -Dsonar.host.url=https://sonarcloud.io \
-        -Dsonar.javascript.lcov.reportPaths=backend/coverage/lcov.info \
-        -Dsonar.login=$(SONAR_TOKEN)
+  # --- Sonar: analizar y evaluar el gate (corta si falla) ---
+  - task: SonarCloudAnalyze@3
     displayName: Sonar • Analyze
 
-  - task: SonarCloudPublish@2
+  - task: SonarCloudPublish@3
     displayName: Sonar • Quality Gate
     inputs:
       pollingTimeoutSec: '300'
+
+  # --- Cypress E2E contra QA ---
+  - script: |
+      cd frontend
+      npm ci
+      npx cypress install
+      CYPRESS_BASE_URL=https://tu-frontend-qa.onrender.com npm run cy:run
+    displayName: Cypress E2E (QA)
+    condition: succeeded()   # solo si todo lo anterior pasó
+
+
