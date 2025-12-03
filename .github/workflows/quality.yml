@@ -14,7 +14,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node 20 (with cache for monorepo)
+      - name: Setup Node 20 (monorepo)
         uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -23,13 +23,12 @@ jobs:
             frontend/package-lock.json
             backend/package-lock.json
 
-      # ---------- Frontend: Vitest + Coverage ----------
+      # ---------- FRONTEND ----------
       - name: Frontend coverage (Vitest)
         working-directory: frontend
         run: |
-          # si no hubiera package-lock, usa install normal
           if [ -f package-lock.json ]; then npm ci; else npm i --no-audit --no-fund; fi
-          npm run test:cov || echo "Vitest devolvió exit code != 0 (warnings/fail) - no rompemos el workflow"
+          npm run test:cov || echo "⚠️ Vitest devolvió exit code != 0, ignorado para continuar"
 
       - name: Upload frontend coverage artifact
         if: always()
@@ -39,12 +38,12 @@ jobs:
           path: frontend/coverage/**
           if-no-files-found: warn
 
-      # ---------- Backend: Jest + Coverage ----------
+      # ---------- BACKEND ----------
       - name: Backend coverage (Jest)
         working-directory: backend
         run: |
           if [ -f package-lock.json ]; then npm ci; else npm i --no-audit --no-fund; fi
-          npm run test:cov || echo "Jest devolvió exit code != 0 (warnings/fail) - no rompemos el workflow"
+          npm run test:cov || echo "⚠️ Jest devolvió exit code != 0, ignorado para continuar"
 
       - name: Upload backend coverage artifact
         if: always()
@@ -54,23 +53,27 @@ jobs:
           path: backend/coverage/**
           if-no-files-found: warn
 
-      # ---------- SonarCloud (opcional; se saltea si no hay token) ----------
+      # ---------- SONARCLOUD ----------
       - name: Setup Java (for Sonar scanner)
-        if: ${{ secrets.SONAR_TOKEN != '' }}
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
-          java-version: '17'
+          distribution: temurin
+          java-version: 17
 
-      - name: SonarCloud Scan
-        if: ${{ secrets.SONAR_TOKEN != '' }}
-        uses: SonarSource/sonarcloud-github-action@v2
+      - name: SonarCloud Scan (optional)
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        with:
-          args: >
-            -Dsonar.scanner.force-deprecated-java-version-grace-period=true
-            -Dsonar.qualitygate.wait=true
+        run: |
+          if [ -n "$SONAR_TOKEN" ]; then
+            echo "🔍 Ejecutando análisis SonarCloud..."
+            npx sonar-scanner \
+              -Dsonar.qualitygate.wait=true \
+              -Dsonar.scanner.force-deprecated-java-version-grace-period=true
+          else
+            echo "⏭️ No se encontró SONAR_TOKEN; se omite SonarCloud"
+          fi
+
+
 
 # name: quality
 
