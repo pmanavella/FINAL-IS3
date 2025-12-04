@@ -35,7 +35,8 @@ stages:
           displayName: 'Sonar • Prepare'
           inputs:
             SonarCloud: 'SonarCloud'
-            organization: '$(SONAR_ORG)'
+            organization: 'pmanavella'
+            projectKey: 'FINAL-IS3'
             scannerMode: 'CLI'
             configMode: 'file'
 
