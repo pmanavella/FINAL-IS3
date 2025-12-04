@@ -11,12 +11,11 @@ variables:
     value: 'ghcr.io'
   - name: GITHUB_ACTOR
     value: 'pmanavella'
-  - name: DEPLOY_RENDER          # <-- control maestro
-    value: 'false'               # ponelo en 'true' cuando tengas Render listo
-  - group: SONAR_TOKEN
-  - group: GHCR_SECRETS          # GHCR_TOKEN, GHCR_USERNAME
-  # - group: RENDER_HOOKS        # (agregalo cuando tengas los hooks)
-
+  - name: DEPLOY_RENDER          
+    value: 'true'               
+  # - group: SONAR_TOKEN
+  # - group: GHCR_SECRETS          
+  - group: RENDER_HOOKS        
 stages:
 # 1) CI
 - stage: CI
