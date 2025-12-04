@@ -11,13 +11,14 @@ variables:
     value: 'ghcr.io'
   - name: GITHUB_ACTOR
     value: 'pmanavella'
+  - name: DEPLOY_RENDER          # <-- control maestro
+    value: 'false'               # ponelo en 'true' cuando tengas Render listo
   - group: SONAR_TOKEN
-  - group: GHCR_SECRETS   # GHCR_TOKEN, GHCR_USERNAME
+  - group: GHCR_SECRETS          # GHCR_TOKEN, GHCR_USERNAME
+  # - group: RENDER_HOOKS        # (agregalo cuando tengas los hooks)
 
 stages:
-# ──────────────────────────────
-# 1️⃣ CI: Tests + SonarCloud
-# ──────────────────────────────
+# 1) CI
 - stage: CI
   displayName: 'CI: Tests + Sonar'
   jobs:
@@ -28,8 +29,7 @@ stages:
           clean: true
 
         - task: NodeTool@0
-          inputs:
-            versionSpec: '$(NODE_VERSION)'
+          inputs: { versionSpec: '$(NODE_VERSION)' }
           displayName: 'Use Node $(NODE_VERSION)'
 
         - task: SonarCloudPrepare@3
@@ -77,24 +77,20 @@ stages:
 
         - task: SonarCloudPublish@3
           displayName: 'Sonar • Quality Gate'
-          inputs:
-            pollingTimeoutSec: '300'
+          inputs: { pollingTimeoutSec: '300' }
 
-# ──────────────────────────────
-# 2️⃣ QA: Build + Push + Deploy
-# ──────────────────────────────
+# 2) QA
 - stage: QA
-  displayName: 'QA: Build & Push + Deploy QA'
+  displayName: 'QA: Build & Push (+ opcional Deploy)'
   dependsOn: CI
   condition: succeeded()
   jobs:
     - job: build_push_qa
-      displayName: 'Build & Push (latest + sha) + Deploy QA'
+      displayName: 'Build & Push (latest + sha) + Deploy QA (si aplica)'
       steps:
         - checkout: self
           clean: true
 
-        # Login GHCR con el dueño del PAT
         - bash: |
             set -e
             echo "$(GHCR_TOKEN)" | docker login "$(REGISTRY)" -u "$(GHCR_USERNAME)" --password-stdin
@@ -129,34 +125,41 @@ stages:
             docker push $(REGISTRY)/$(GITHUB_ACTOR)/books-frontend:sha-$SHA
           displayName: 'Frontend QA • Build (VITE_ENV=qa) & Push'
 
+        # ── Deploy a Render: solo si DEPLOY_RENDER == 'true' y existen los hooks
         - bash: |
             set -e
+            if [ "$(DEPLOY_RENDER)" != "true" ] || [ -z "$RENDER_QA_HOOK_FRONT" ] || [ -z "$RENDER_QA_HOOK_BACK" ]; then
+              echo "Saltando Deploy QA (Render): faltan hooks o DEPLOY_RENDER != true"
+              exit 0
+            fi
             echo "Trigger Render FRONT QA"
             curl -fsS -X POST "$RENDER_QA_HOOK_FRONT"
             echo "Trigger Render BACK QA"
             curl -fsS -X POST "$RENDER_QA_HOOK_BACK"
-          displayName: 'Deploy QA (Render hooks)'
+          displayName: 'Deploy QA (Render hooks, opcional)'
 
+        # ── Cypress: solo si DEPLOY_RENDER == 'true' y FRONT_QA_URL está seteada
         - bash: |
             set -e
-            if [ -z "$FRONT_QA_URL" ]; then
-              echo "FRONT_QA_URL no está seteada; se omite Cypress."
+            if [ "$(DEPLOY_RENDER)" != "true" ] || [ -z "$FRONT_QA_URL" ]; then
+              echo "Saltando Cypress: no hay FRONT_QA_URL o DEPLOY_RENDER != true"
               exit 0
             fi
             cd frontend
             npm ci
             npx cypress install
             CYPRESS_BASE_URL="$FRONT_QA_URL" npm run cy:run
-          displayName: 'Cypress E2E (QA)'
-          condition: succeeded()
+          displayName: 'Cypress E2E (QA, opcional)'
 
-# ──────────────────────────────
-# 3️⃣ PROD: Approval + Deploy (deployment job)
-# ──────────────────────────────
+# 3) PROD (solo si ya hay Render y queremos promover)
 - stage: PROD
   displayName: 'PROD: Approval → Promote & Deploy'
   dependsOn: QA
-  condition: succeeded()
+  # corre solo si todo ok y DEPLOY_RENDER == 'true' y tenemos hooks prod
+  condition: and(succeeded(),
+                 eq(variables.DEPLOY_RENDER, 'true'),
+                 ne(variables['RENDER_PROD_HOOK_FRONT'], ''),
+                 ne(variables['RENDER_PROD_HOOK_BACK'], ''))
   jobs:
     - deployment: promote_prod
       displayName: 'Promote to :prod + Deploy PROD'
@@ -196,3 +199,206 @@ stages:
                   echo "Trigger Render BACK PROD"
                   curl -fsS -X POST "$RENDER_PROD_HOOK_BACK"
                 displayName: 'Deploy PROD (Render hooks)'
+
+
+# !!!!! CORRE QA
+
+# trigger:
+#   - main
+
+# pool:
+#   vmImage: ubuntu-latest
+
+# variables:
+#   - name: NODE_VERSION
+#     value: '20'
+#   - name: REGISTRY
+#     value: 'ghcr.io'
+#   - name: GITHUB_ACTOR
+#     value: 'pmanavella'
+#   - group: SONAR_TOKEN
+#   - group: GHCR_SECRETS   # GHCR_TOKEN, GHCR_USERNAME
+#   - group: RENDER_HOOKS   # hooks de Render + FRONT_QA_URL
+
+# stages:
+# # ──────────────────────────────
+# # 1️⃣ CI: Tests + SonarCloud
+# # ──────────────────────────────
+# - stage: CI
+#   displayName: 'CI: Tests + Sonar'
+#   jobs:
+#     - job: quality
+#       displayName: 'Quality'
+#       steps:
+#         - checkout: self
+#           clean: true
+
+#         - task: NodeTool@0
+#           inputs:
+#             versionSpec: '$(NODE_VERSION)'
+#           displayName: 'Use Node $(NODE_VERSION)'
+
+#         - task: SonarCloudPrepare@3
+#           displayName: 'Sonar • Prepare'
+#           inputs:
+#             SonarCloud: 'SonarCloud'
+#             organization: '$(SONAR_ORG)'
+#             scannerMode: 'CLI'
+#             configMode: 'file'
+
+#         - script: |
+#             set -e
+#             cd frontend
+#             npm ci
+#             npm run test:cov || echo "Vitest warnings, continuamos..."
+#           displayName: 'Frontend • Vitest + Coverage'
+
+#         - task: PublishCodeCoverageResults@2
+#           displayName: 'Frontend • Publicar Coverage'
+#           inputs:
+#             codeCoverageTool: Cobertura
+#             summaryFileLocation: 'frontend/coverage/cobertura-coverage.xml'
+#             reportDirectory: 'frontend/coverage'
+#             failIfCoverageEmpty: false
+#           condition: always()
+
+#         - script: |
+#             set -e
+#             cd backend
+#             npm ci
+#             npm run test:cov || echo "Jest warnings, continuamos..."
+#           displayName: 'Backend • Jest + Coverage'
+
+#         - task: PublishCodeCoverageResults@2
+#           displayName: 'Backend • Publicar Coverage'
+#           inputs:
+#             codeCoverageTool: Cobertura
+#             summaryFileLocation: 'backend/coverage/cobertura-coverage.xml'
+#             reportDirectory: 'backend/coverage'
+#             failIfCoverageEmpty: false
+#           condition: always()
+
+#         - task: SonarCloudAnalyze@3
+#           displayName: 'Sonar • Analyze'
+
+#         - task: SonarCloudPublish@3
+#           displayName: 'Sonar • Quality Gate'
+#           inputs:
+#             pollingTimeoutSec: '300'
+
+# # ──────────────────────────────
+# # 2️⃣ QA: Build + Push + Deploy
+# # ──────────────────────────────
+# - stage: QA
+#   displayName: 'QA: Build & Push + Deploy QA'
+#   dependsOn: CI
+#   condition: succeeded()
+#   jobs:
+#     - job: build_push_qa
+#       displayName: 'Build & Push (latest + sha) + Deploy QA'
+#       steps:
+#         - checkout: self
+#           clean: true
+
+#         # Login GHCR con el dueño del PAT
+#         - bash: |
+#             set -e
+#             echo "$(GHCR_TOKEN)" | docker login "$(REGISTRY)" -u "$(GHCR_USERNAME)" --password-stdin
+#           displayName: 'Login GHCR'
+
+#         - bash: |
+#             set -e
+#             SHORT_SHA="$(echo $(Build.SourceVersion) | cut -c1-7)"
+#             echo "SHORT_SHA=$SHORT_SHA" > meta.txt
+#             cat meta.txt
+#           displayName: 'Compute short sha'
+
+#         - bash: |
+#             set -e
+#             SHA="$(grep SHORT_SHA meta.txt | cut -d'=' -f2)"
+#             docker build -t $(REGISTRY)/$(GITHUB_ACTOR)/books-backend:latest \
+#                           -t $(REGISTRY)/$(GITHUB_ACTOR)/books-backend:sha-$SHA \
+#                           backend
+#             docker push $(REGISTRY)/$(GITHUB_ACTOR)/books-backend:latest
+#             docker push $(REGISTRY)/$(GITHUB_ACTOR)/books-backend:sha-$SHA
+#           displayName: 'Backend • Build & Push'
+
+#         - bash: |
+#             set -e
+#             SHA="$(grep SHORT_SHA meta.txt | cut -d'=' -f2)"
+#             docker build \
+#               --build-arg VITE_ENV=qa \
+#               -t $(REGISTRY)/$(GITHUB_ACTOR)/books-frontend:latest \
+#               -t $(REGISTRY)/$(GITHUB_ACTOR)/books-frontend:sha-$SHA \
+#               frontend
+#             docker push $(REGISTRY)/$(GITHUB_ACTOR)/books-frontend:latest
+#             docker push $(REGISTRY)/$(GITHUB_ACTOR)/books-frontend:sha-$SHA
+#           displayName: 'Frontend QA • Build (VITE_ENV=qa) & Push'
+
+#         - bash: |
+#             set -e
+#             echo "Trigger Render FRONT QA"
+#             curl -fsS -X POST "$RENDER_QA_HOOK_FRONT"
+#             echo "Trigger Render BACK QA"
+#             curl -fsS -X POST "$RENDER_QA_HOOK_BACK"
+#           displayName: 'Deploy QA (Render hooks)'
+
+#         - bash: |
+#             set -e
+#             if [ -z "$FRONT_QA_URL" ]; then
+#               echo "FRONT_QA_URL no está seteada; se omite Cypress."
+#               exit 0
+#             fi
+#             cd frontend
+#             npm ci
+#             npx cypress install
+#             CYPRESS_BASE_URL="$FRONT_QA_URL" npm run cy:run
+#           displayName: 'Cypress E2E (QA)'
+#           condition: succeeded()
+
+# # ──────────────────────────────
+# # 3️⃣ PROD: Approval + Deploy (deployment job)
+# # ──────────────────────────────
+# - stage: PROD
+#   displayName: 'PROD: Approval → Promote & Deploy'
+#   dependsOn: QA
+#   condition: succeeded()
+#   jobs:
+#     - deployment: promote_prod
+#       displayName: 'Promote to :prod + Deploy PROD'
+#       environment: 'prod'
+#       strategy:
+#         runOnce:
+#           deploy:
+#             steps:
+#               - checkout: self
+#                 clean: true
+
+#               - bash: |
+#                   set -e
+#                   echo "$(GHCR_TOKEN)" | docker login "$(REGISTRY)" -u "$(GHCR_USERNAME)" --password-stdin
+#                 displayName: 'Login GHCR'
+
+#               - bash: |
+#                   set -e
+#                   docker pull $(REGISTRY)/$(GITHUB_ACTOR)/books-backend:latest
+#                   docker tag  $(REGISTRY)/$(GITHUB_ACTOR)/books-backend:latest $(REGISTRY)/$(GITHUB_ACTOR)/books-backend:prod
+#                   docker push $(REGISTRY)/$(GITHUB_ACTOR)/books-backend:prod
+#                 displayName: 'Backend • Promote to :prod'
+
+#               - bash: |
+#                   set -e
+#                   docker build \
+#                     --build-arg VITE_ENV=prod \
+#                     -t $(REGISTRY)/$(GITHUB_ACTOR)/books-frontend:prod \
+#                     frontend
+#                   docker push $(REGISTRY)/$(GITHUB_ACTOR)/books-frontend:prod
+#                 displayName: 'Frontend PROD • Build (VITE_ENV=prod) & Push :prod'
+
+#               - bash: |
+#                   set -e
+#                   echo "Trigger Render FRONT PROD"
+#                   curl -fsS -X POST "$RENDER_PROD_HOOK_FRONT"
+#                   echo "Trigger Render BACK PROD"
+#                   curl -fsS -X POST "$RENDER_PROD_HOOK_BACK"
+#                 displayName: 'Deploy PROD (Render hooks)'
