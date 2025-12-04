@@ -9,11 +9,10 @@ variables:
     value: '20'
   - name: REGISTRY
     value: 'ghcr.io'
-  # 👇 tu usuario de GitHub lo usamos solo como default; para el login usamos GHCR_USERNAME
   - name: GITHUB_ACTOR
     value: 'pmanavella'
   - group: SONAR_TOKEN
-  - group: GHCR_SECRETS   # <-- agrega este grupo en Library (GHCR_TOKEN, GHCR_USERNAME)
+  - group: GHCR_SECRETS   # GHCR_TOKEN, GHCR_USERNAME
 
 stages:
 # ──────────────────────────────
@@ -95,7 +94,7 @@ stages:
         - checkout: self
           clean: true
 
-        # ✅ FIX: login usando el dueño del PAT (GHCR_USERNAME)
+        # Login GHCR con el dueño del PAT
         - bash: |
             set -e
             echo "$(GHCR_TOKEN)" | docker login "$(REGISTRY)" -u "$(GHCR_USERNAME)" --password-stdin
@@ -133,21 +132,21 @@ stages:
         - bash: |
             set -e
             echo "Trigger Render FRONT QA"
-            curl -fsS -X POST "$(RENDER_QA_HOOK_FRONT)"
+            curl -fsS -X POST "$RENDER_QA_HOOK_FRONT"
             echo "Trigger Render BACK QA"
-            curl -fsS -X POST "$(RENDER_QA_HOOK_BACK)"
+            curl -fsS -X POST "$RENDER_QA_HOOK_BACK"
           displayName: 'Deploy QA (Render hooks)'
 
         - bash: |
             set -e
-            if [ -z "$(FRONT_QA_URL)" ]; then
+            if [ -z "$FRONT_QA_URL" ]; then
               echo "FRONT_QA_URL no está seteada; se omite Cypress."
               exit 0
             fi
             cd frontend
             npm ci
             npx cypress install
-            CYPRESS_BASE_URL="$(FRONT_QA_URL)" npm run cy:run
+            CYPRESS_BASE_URL="$FRONT_QA_URL" npm run cy:run
           displayName: 'Cypress E2E (QA)'
           condition: succeeded()
 
@@ -161,7 +160,7 @@ stages:
   jobs:
     - deployment: promote_prod
       displayName: 'Promote to :prod + Deploy PROD'
-      environment: 'prod'  # approval aquí
+      environment: 'prod'
       strategy:
         runOnce:
           deploy:
@@ -193,7 +192,7 @@ stages:
               - bash: |
                   set -e
                   echo "Trigger Render FRONT PROD"
-                  curl -fsS -X POST "$(RENDER_PROD_HOOK_FRONT)"
+                  curl -fsS -X POST "$RENDER_PROD_HOOK_FRONT"
                   echo "Trigger Render BACK PROD"
-                  curl -fsS -X POST "$(RENDER_PROD_HOOK_BACK)"
+                  curl -fsS -X POST "$RENDER_PROD_HOOK_BACK"
                 displayName: 'Deploy PROD (Render hooks)'
