@@ -9,9 +9,11 @@ variables:
     value: '20'
   - name: REGISTRY
     value: 'ghcr.io'
+  # 👇 tu usuario de GitHub lo usamos solo como default; para el login usamos GHCR_USERNAME
   - name: GITHUB_ACTOR
     value: 'pmanavella'
   - group: SONAR_TOKEN
+  - group: GHCR_SECRETS   # <-- agrega este grupo en Library (GHCR_TOKEN, GHCR_USERNAME)
 
 stages:
 # ──────────────────────────────
@@ -91,21 +93,24 @@ stages:
       displayName: 'Build & Push (latest + sha) + Deploy QA'
       steps:
         - checkout: self
+          clean: true
 
-        - script: |
-            echo "$GHCR_TOKEN" | docker login $(REGISTRY) -u $(GITHUB_ACTOR) --password-stdin
-          env:
-            GHCR_TOKEN: $(GHCR_TOKEN)
+        # ✅ FIX: login usando el dueño del PAT (GHCR_USERNAME)
+        - bash: |
+            set -e
+            echo "$(GHCR_TOKEN)" | docker login "$(REGISTRY)" -u "$(GHCR_USERNAME)" --password-stdin
           displayName: 'Login GHCR'
 
-        - script: |
-            SHORT_SHA=$(echo $(Build.SourceVersion) | cut -c1-7)
+        - bash: |
+            set -e
+            SHORT_SHA="$(echo $(Build.SourceVersion) | cut -c1-7)"
             echo "SHORT_SHA=$SHORT_SHA" > meta.txt
             cat meta.txt
           displayName: 'Compute short sha'
 
-        - script: |
-            SHA=$(grep SHORT_SHA meta.txt | cut -d'=' -f2)
+        - bash: |
+            set -e
+            SHA="$(grep SHORT_SHA meta.txt | cut -d'=' -f2)"
             docker build -t $(REGISTRY)/$(GITHUB_ACTOR)/books-backend:latest \
                           -t $(REGISTRY)/$(GITHUB_ACTOR)/books-backend:sha-$SHA \
                           backend
@@ -113,8 +118,9 @@ stages:
             docker push $(REGISTRY)/$(GITHUB_ACTOR)/books-backend:sha-$SHA
           displayName: 'Backend • Build & Push'
 
-        - script: |
-            SHA=$(grep SHORT_SHA meta.txt | cut -d'=' -f2)
+        - bash: |
+            set -e
+            SHA="$(grep SHORT_SHA meta.txt | cut -d'=' -f2)"
             docker build \
               --build-arg VITE_ENV=qa \
               -t $(REGISTRY)/$(GITHUB_ACTOR)/books-frontend:latest \
@@ -124,14 +130,16 @@ stages:
             docker push $(REGISTRY)/$(GITHUB_ACTOR)/books-frontend:sha-$SHA
           displayName: 'Frontend QA • Build (VITE_ENV=qa) & Push'
 
-        - script: |
+        - bash: |
+            set -e
             echo "Trigger Render FRONT QA"
             curl -fsS -X POST "$(RENDER_QA_HOOK_FRONT)"
             echo "Trigger Render BACK QA"
             curl -fsS -X POST "$(RENDER_QA_HOOK_BACK)"
           displayName: 'Deploy QA (Render hooks)'
 
-        - script: |
+        - bash: |
+            set -e
             if [ -z "$(FRONT_QA_URL)" ]; then
               echo "FRONT_QA_URL no está seteada; se omite Cypress."
               exit 0
@@ -139,7 +147,7 @@ stages:
             cd frontend
             npm ci
             npx cypress install
-            CYPRESS_BASE_URL=$(FRONT_QA_URL) npm run cy:run
+            CYPRESS_BASE_URL="$(FRONT_QA_URL)" npm run cy:run
           displayName: 'Cypress E2E (QA)'
           condition: succeeded()
 
@@ -151,30 +159,30 @@ stages:
   dependsOn: QA
   condition: succeeded()
   jobs:
-    - deployment: promote_prod               # <-- deployment job (reemplaza "job:")
+    - deployment: promote_prod
       displayName: 'Promote to :prod + Deploy PROD'
-      environment: 'prod'                    # <-- ahora sí, aquí va el Environment con Approval
+      environment: 'prod'  # approval aquí
       strategy:
         runOnce:
           deploy:
             steps:
               - checkout: self
+                clean: true
 
-              - script: |
-                  echo "$GHCR_TOKEN" | docker login $(REGISTRY) -u $(GITHUB_ACTOR) --password-stdin
-                env:
-                  GHCR_TOKEN: $(GHCR_TOKEN)
+              - bash: |
+                  set -e
+                  echo "$(GHCR_TOKEN)" | docker login "$(REGISTRY)" -u "$(GHCR_USERNAME)" --password-stdin
                 displayName: 'Login GHCR'
 
-              # Backend → promover a :prod (desde latest)
-              - script: |
+              - bash: |
+                  set -e
                   docker pull $(REGISTRY)/$(GITHUB_ACTOR)/books-backend:latest
                   docker tag  $(REGISTRY)/$(GITHUB_ACTOR)/books-backend:latest $(REGISTRY)/$(GITHUB_ACTOR)/books-backend:prod
                   docker push $(REGISTRY)/$(GITHUB_ACTOR)/books-backend:prod
                 displayName: 'Backend • Promote to :prod'
 
-              # Frontend PROD → build con VITE_ENV=prod y push :prod
-              - script: |
+              - bash: |
+                  set -e
                   docker build \
                     --build-arg VITE_ENV=prod \
                     -t $(REGISTRY)/$(GITHUB_ACTOR)/books-frontend:prod \
@@ -182,8 +190,8 @@ stages:
                   docker push $(REGISTRY)/$(GITHUB_ACTOR)/books-frontend:prod
                 displayName: 'Frontend PROD • Build (VITE_ENV=prod) & Push :prod'
 
-              # Despliegue PROD (hooks de Render)
-              - script: |
+              - bash: |
+                  set -e
                   echo "Trigger Render FRONT PROD"
                   curl -fsS -X POST "$(RENDER_PROD_HOOK_FRONT)"
                   echo "Trigger Render BACK PROD"
