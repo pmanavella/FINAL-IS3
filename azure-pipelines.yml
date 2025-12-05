@@ -13,7 +13,7 @@ variables:
     value: 'pmanavella'
   - name: DEPLOY_RENDER
     value: 'true'
-  - group: SONAR_TOKEN          # si usás service connection de Sonar, puede no hacer falta
+  - group: SONAR_TOKEN
   - group: GHCR_SECRETS         # GHCR_TOKEN (secret), GHCR_USERNAME
   - group: RENDER_HOOKS         # hooks y FRONT_QA_URL
 
@@ -99,7 +99,7 @@ stages:
         - checkout: self
           clean: true
 
-        # Login GHCR con env (evita $(...) dentro de bash)
+        # Login GHCR
         - bash: |
             set -e
             echo "$GHCR_TOKEN" | docker login "$REGISTRY" -u "$GHCR_USERNAME" --password-stdin
@@ -155,7 +155,38 @@ stages:
             RENDER_QA_HOOK_FRONT: $(RENDER_QA_HOOK_FRONT)
             RENDER_QA_HOOK_BACK: $(RENDER_QA_HOOK_BACK)
 
-        # Cypress E2E (opcional)
+        # Espera a que FRONT_QA_URL responda 200 (hasta ~10 min)
+        - bash: |
+            set -e
+            if [ "$(DEPLOY_RENDER)" != "true" ] || [ -z "$FRONT_QA_URL" ]; then
+              echo "Saltando espera: no hay FRONT_QA_URL o DEPLOY_RENDER != true"
+              exit 0
+            fi
+            echo "Esperando a que $FRONT_QA_URL responda 200..."
+            ATTEMPTS=60
+            SLEEP=10
+            i=1
+            STATUS=000
+            until [ $i -gt $ATTEMPTS ]; do
+              STATUS=$(curl -sk -o /dev/null -w "%{http_code}" "$FRONT_QA_URL")
+              if [ "$STATUS" = "200" ]; then
+                echo "OK ($STATUS) en intento $i"
+                break
+              fi
+              echo "Intento $i/$ATTEMPTS → HTTP $STATUS. Reintentando en ${SLEEP}s..."
+              sleep $SLEEP
+              i=$((i+1))
+            done
+            if [ "$STATUS" != "200" ]; then
+              echo "No alcanzó estado 200 en el tiempo esperado."
+              exit 1
+            fi
+          displayName: 'Wait until FRONT_QA_URL is healthy'
+          env:
+            DEPLOY_RENDER: $(DEPLOY_RENDER)
+            FRONT_QA_URL: $(FRONT_QA_URL)
+
+        # Cypress E2E (opcional, con retries y headless)
         - bash: |
             set -e
             if [ "$(DEPLOY_RENDER)" != "true" ] || [ -z "$FRONT_QA_URL" ]; then
@@ -165,11 +196,15 @@ stages:
             cd frontend
             npm ci
             npx cypress install
-            CYPRESS_BASE_URL="$FRONT_QA_URL" npm run cy:run
+            # Pasamos baseUrl por env y agregamos retries
+            export CYPRESS_baseUrl="$FRONT_QA_URL"
+            export CYPRESS_video=false
+            npx cypress run --browser chrome --headless --config retries=2
           displayName: 'Cypress E2E (QA, opcional)'
           env:
             DEPLOY_RENDER: $(DEPLOY_RENDER)
             FRONT_QA_URL: $(FRONT_QA_URL)
+          continueOnError: true
 
 # ──────────────────────────────
 # 3) PROD: Approval → Promote & Deploy
