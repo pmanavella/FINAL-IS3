@@ -155,18 +155,20 @@ stages:
             RENDER_QA_HOOK_FRONT: $(RENDER_QA_HOOK_FRONT)
             RENDER_QA_HOOK_BACK: $(RENDER_QA_HOOK_BACK)
 
-        # Espera a que FRONT_QA_URL responda 200 (hasta ~10 min)
+        # Esperar a que FRONT_QA_URL devuelva 200
         - bash: |
             set -e
             if [ "$(DEPLOY_RENDER)" != "true" ] || [ -z "$FRONT_QA_URL" ]; then
               echo "Saltando espera: no hay FRONT_QA_URL o DEPLOY_RENDER != true"
               exit 0
             fi
+
             echo "Esperando a que $FRONT_QA_URL responda 200..."
             ATTEMPTS=60
             SLEEP=10
             i=1
             STATUS=000
+
             until [ $i -gt $ATTEMPTS ]; do
               STATUS=$(curl -sk -o /dev/null -w "%{http_code}" "$FRONT_QA_URL")
               if [ "$STATUS" = "200" ]; then
@@ -177,6 +179,7 @@ stages:
               sleep $SLEEP
               i=$((i+1))
             done
+
             if [ "$STATUS" != "200" ]; then
               echo "No alcanzó estado 200 en el tiempo esperado."
               exit 1
@@ -186,20 +189,20 @@ stages:
             DEPLOY_RENDER: $(DEPLOY_RENDER)
             FRONT_QA_URL: $(FRONT_QA_URL)
 
-        # Cypress E2E (opcional, con retries y headless)
+        # Cypress E2E (headless + retries)
         - bash: |
             set -e
             if [ "$(DEPLOY_RENDER)" != "true" ] || [ -z "$FRONT_QA_URL" ]; then
               echo "Saltando Cypress: no hay FRONT_QA_URL o DEPLOY_RENDER != true"
               exit 0
             fi
+
             cd frontend
             npm ci
             npx cypress install
-            # Pasamos baseUrl por env y agregamos retries
-            export CYPRESS_baseUrl="$FRONT_QA_URL"
-            export CYPRESS_video=false
-            npx cypress run --browser chrome --headless --config retries=2
+
+            # Ejecutar Cypress usando baseUrl correcto
+            npx cypress run --browser chrome --headless --config "baseUrl=$FRONT_QA_URL,retries=2"
           displayName: 'Cypress E2E (QA, opcional)'
           env:
             DEPLOY_RENDER: $(DEPLOY_RENDER)
@@ -239,7 +242,7 @@ stages:
               - bash: |
                   set -e
                   docker pull $(REGISTRY)/$(GITHUB_ACTOR)/books-backend:latest
-                  docker tag  $(REGISTRY)/$(GITHUB_ACTOR)/books-backend:latest $(REGISTRY)/$(GITHUB_ACTOR)/books-backend:prod
+                  docker tag $(REGISTRY)/$(GITHUB_ACTOR)/books-backend:latest $(REGISTRY)/$(GITHUB_ACTOR)/books-backend:prod
                   docker push $(REGISTRY)/$(GITHUB_ACTOR)/books-backend:prod
                 displayName: 'Backend • Promote to :prod'
 
