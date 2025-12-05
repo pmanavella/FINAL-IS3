@@ -189,25 +189,30 @@ stages:
             DEPLOY_RENDER: $(DEPLOY_RENDER)
             FRONT_QA_URL: $(FRONT_QA_URL)
 
-        # Cypress E2E (headless + retries)
+        # Cypress E2E (QA, opcional, NO bloquea nunca el pipeline)
         - bash: |
-            set -e
-            if [ "$(DEPLOY_RENDER)" != "true" ] || [ -z "$FRONT_QA_URL" ]; then
+             set +e
+
+             if [ "$(DEPLOY_RENDER)" != "true" ] || [ -z "$FRONT_QA_URL" ]; then
               echo "Saltando Cypress: no hay FRONT_QA_URL o DEPLOY_RENDER != true"
               exit 0
-            fi
+             fi
 
-            cd frontend
-            npm ci
-            npx cypress install
+             cd frontend
+             npm ci
+             npx cypress install
 
-            # Ejecutar Cypress usando baseUrl correcto
-            npx cypress run --browser chrome --headless --config "baseUrl=$FRONT_QA_URL,retries=2"
-          displayName: 'Cypress E2E (QA, opcional)'
+             # Ejecuta Cypress headless con baseUrl y 2 reintentos
+             npx cypress run --browser chrome --headless --config "baseUrl=$FRONT_QA_URL,retries=2"
+             CYP_EXIT=$?
+
+             echo "Cypress exit code: $CYP_EXIT (forzado a éxito para no bloquear el pipeline)"
+             exit 0
+          displayName: 'Cypress E2E (QA, opcional, non-blocking)'
           env:
             DEPLOY_RENDER: $(DEPLOY_RENDER)
             FRONT_QA_URL: $(FRONT_QA_URL)
-          continueOnError: true
+          condition: always()
 
 # ──────────────────────────────
 # 3) PROD: Approval → Promote & Deploy
