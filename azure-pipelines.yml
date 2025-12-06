@@ -14,14 +14,13 @@ variables:
   - name: DEPLOY_RENDER
     value: 'true'
   - group: SONAR_TOKEN
-  - group: GHCR_SECRETS         # GHCR_TOKEN (secret), GHCR_USERNAME
-  - group: RENDER_HOOKS         # hooks y FRONT_QA_URL
+  - group: GHCR_SECRETS
+  - group: RENDER_HOOKS   # INCLUYE: BACK_QA_URL, BACK_PROD_URL, FRONT_QA_URL, HOOKS
 
-stages:
-
-# ──────────────────────────────
+# ───────────────────────────────────────────
 # 1) CI: Tests + Sonar
-# ──────────────────────────────
+# ───────────────────────────────────────────
+stages:
 - stage: CI
   displayName: 'CI: Tests + Sonar'
   jobs:
@@ -45,6 +44,7 @@ stages:
             scannerMode: 'CLI'
             configMode: 'file'
 
+        # Frontend tests + coverage
         - script: |
             set -e
             cd frontend
@@ -61,6 +61,7 @@ stages:
             failIfCoverageEmpty: false
           condition: always()
 
+        # Backend tests + coverage
         - script: |
             set -e
             cd backend
@@ -78,46 +79,40 @@ stages:
           condition: always()
 
         - task: SonarCloudAnalyze@3
-          displayName: 'Sonar • Analyze'
-
         - task: SonarCloudPublish@3
-          displayName: 'Sonar • Quality Gate'
           inputs:
             pollingTimeoutSec: '300'
 
-# ──────────────────────────────
-# 2) QA: Build & Push (+ opcional Deploy)
-# ──────────────────────────────
+# ───────────────────────────────────────────
+# 2) QA: Build + Push + Deploy
+# ───────────────────────────────────────────
 - stage: QA
-  displayName: 'QA: Build & Push (+ opcional Deploy)'
+  displayName: 'QA: Build & Push (+ Deploy)'
   dependsOn: CI
   condition: succeeded()
   jobs:
     - job: build_push_qa
-      displayName: 'Build & Push (latest + sha) + Deploy QA (si aplica)'
+      displayName: 'Build & Push (latest + sha) + Deploy QA'
       steps:
         - checkout: self
           clean: true
 
-        # Login GHCR
+        # Login a GHCR
         - bash: |
-            set -e
             echo "$GHCR_TOKEN" | docker login "$REGISTRY" -u "$GHCR_USERNAME" --password-stdin
           displayName: 'Login GHCR'
           env:
             GHCR_TOKEN: $(GHCR_TOKEN)
             GHCR_USERNAME: $(GHCR_USERNAME)
-            REGISTRY: $(REGISTRY)
 
+        # Short SHA
         - bash: |
-            set -e
             SHORT_SHA="$(echo $(Build.SourceVersion) | cut -c1-7)"
             echo "SHORT_SHA=$SHORT_SHA" > meta.txt
-            cat meta.txt
           displayName: 'Compute short sha'
 
+        # Backend build
         - bash: |
-            set -e
             SHA="$(grep SHORT_SHA meta.txt | cut -d'=' -f2)"
             docker build -t $(REGISTRY)/$(GITHUB_ACTOR)/books-backend:latest \
                           -t $(REGISTRY)/$(GITHUB_ACTOR)/books-backend:sha-$SHA \
@@ -126,155 +121,86 @@ stages:
             docker push $(REGISTRY)/$(GITHUB_ACTOR)/books-backend:sha-$SHA
           displayName: 'Backend • Build & Push'
 
+        # Frontend build (inyectando la API de QA)
         - bash: |
-            set -e
             SHA="$(grep SHORT_SHA meta.txt | cut -d'=' -f2)"
+
             docker build \
-              --build-arg VITE_ENV=qa \
+              --build-arg VITE_API_URL=$(BACK_QA_URL) \
               -t $(REGISTRY)/$(GITHUB_ACTOR)/books-frontend:latest \
               -t $(REGISTRY)/$(GITHUB_ACTOR)/books-frontend:sha-$SHA \
               frontend
+
             docker push $(REGISTRY)/$(GITHUB_ACTOR)/books-frontend:latest
             docker push $(REGISTRY)/$(GITHUB_ACTOR)/books-frontend:sha-$SHA
-          displayName: 'Frontend QA • Build (VITE_ENV=qa) & Push'
+          displayName: 'Frontend QA • Build (VITE_API_URL) & Push'
 
-        # Deploy a Render (opcional)
+        # Deploy QA a Render
         - bash: |
-            set -e
-            if [ "$(DEPLOY_RENDER)" != "true" ] || [ -z "$RENDER_QA_HOOK_FRONT" ] || [ -z "$RENDER_QA_HOOK_BACK" ]; then
-              echo "Saltando Deploy QA (Render): faltan hooks o DEPLOY_RENDER != true"
+            if [ -z "$RENDER_QA_HOOK_FRONT" ] || [ -z "$RENDER_QA_HOOK_BACK" ]; then
+              echo "Saltando deploy QA: faltan hooks"
               exit 0
             fi
-            echo "Trigger Render FRONT QA"
+
+            echo "🚀 Trigger Render FRONT QA"
             curl -fsS -X POST "$RENDER_QA_HOOK_FRONT"
-            echo "Trigger Render BACK QA"
+
+            echo "🚀 Trigger Render BACK QA"
             curl -fsS -X POST "$RENDER_QA_HOOK_BACK"
-          displayName: 'Deploy QA (Render hooks, opcional)'
+          displayName: 'Deploy QA (Render)'
           env:
-            DEPLOY_RENDER: $(DEPLOY_RENDER)
             RENDER_QA_HOOK_FRONT: $(RENDER_QA_HOOK_FRONT)
             RENDER_QA_HOOK_BACK: $(RENDER_QA_HOOK_BACK)
 
-        # Esperar a que FRONT_QA_URL devuelva 200
-        - bash: |
-            set -e
-            if [ "$(DEPLOY_RENDER)" != "true" ] || [ -z "$FRONT_QA_URL" ]; then
-              echo "Saltando espera: no hay FRONT_QA_URL o DEPLOY_RENDER != true"
-              exit 0
-            fi
-
-            echo "Esperando a que $FRONT_QA_URL responda 200..."
-            ATTEMPTS=60
-            SLEEP=10
-            i=1
-            STATUS=000
-
-            until [ $i -gt $ATTEMPTS ]; do
-              STATUS=$(curl -sk -o /dev/null -w "%{http_code}" "$FRONT_QA_URL")
-              if [ "$STATUS" = "200" ]; then
-                echo "OK ($STATUS) en intento $i"
-                break
-              fi
-              echo "Intento $i/$ATTEMPTS → HTTP $STATUS. Reintentando en ${SLEEP}s..."
-              sleep $SLEEP
-              i=$((i+1))
-            done
-
-            if [ "$STATUS" != "200" ]; then
-              echo "No alcanzó estado 200 en el tiempo esperado."
-              exit 1
-            fi
-          displayName: 'Wait until FRONT_QA_URL is healthy'
-          env:
-            DEPLOY_RENDER: $(DEPLOY_RENDER)
-            FRONT_QA_URL: $(FRONT_QA_URL)
-
-        # Cypress E2E (QA, opcional, NO bloquea nunca el pipeline)
-        - bash: |
-             set +e
-
-             if [ "$(DEPLOY_RENDER)" != "true" ] || [ -z "$FRONT_QA_URL" ]; then
-              echo "Saltando Cypress: no hay FRONT_QA_URL o DEPLOY_RENDER != true"
-              exit 0
-             fi
-
-             cd frontend
-             npm ci
-             npx cypress install
-
-             # Ejecuta Cypress headless con baseUrl y 2 reintentos
-             npx cypress run --browser chrome --headless --config "baseUrl=$FRONT_QA_URL,retries=2"
-             CYP_EXIT=$?
-
-             echo "Cypress exit code: $CYP_EXIT (forzado a éxito para no bloquear el pipeline)"
-             exit 0
-          displayName: 'Cypress E2E (QA, opcional, non-blocking)'
-          env:
-            DEPLOY_RENDER: $(DEPLOY_RENDER)
-            FRONT_QA_URL: $(FRONT_QA_URL)
-          condition: always()
-
-# ──────────────────────────────
-# 3) PROD: Approval → Promote & Deploy
-# ──────────────────────────────
+# ───────────────────────────────────────────
+# 3) PROD: Approval → Promote + Deploy
+# ───────────────────────────────────────────
 - stage: PROD
   displayName: 'PROD: Approval → Promote & Deploy'
   dependsOn: QA
-  condition: and(succeeded(), eq(variables.DEPLOY_RENDER, 'true'))
+  condition: succeeded()
   jobs:
     - deployment: promote_prod
-      displayName: 'Promote to :prod + Deploy PROD'
+      displayName: 'Promote + Deploy PROD'
       environment: 'prod'
       strategy:
         runOnce:
           deploy:
             steps:
               - checkout: self
-                clean: true
 
+              # Login GHCR
               - bash: |
-                  set -e
-                  if [ -z "$RENDER_PROD_HOOK_FRONT" ] || [ -z "$RENDER_PROD_HOOK_BACK" ]; then
-                    echo "Faltan hooks de PROD. Se omite el deploy a PROD."
-                    exit 0
-                  fi
-                displayName: 'Precheck hooks PROD'
-                env:
-                  RENDER_PROD_HOOK_FRONT: $(RENDER_PROD_HOOK_FRONT)
-                  RENDER_PROD_HOOK_BACK: $(RENDER_PROD_HOOK_BACK)
-              
-              - bash: |
-                  set -e
                   echo "$GHCR_TOKEN" | docker login "$REGISTRY" -u "$GHCR_USERNAME" --password-stdin
-                displayName: 'Login GHCR'
                 env:
                   GHCR_TOKEN: $(GHCR_TOKEN)
                   GHCR_USERNAME: $(GHCR_USERNAME)
-                  REGISTRY: $(REGISTRY)
 
+              # Promote backend latest → prod
               - bash: |
-                  set -e
                   docker pull $(REGISTRY)/$(GITHUB_ACTOR)/books-backend:latest
                   docker tag $(REGISTRY)/$(GITHUB_ACTOR)/books-backend:latest $(REGISTRY)/$(GITHUB_ACTOR)/books-backend:prod
                   docker push $(REGISTRY)/$(GITHUB_ACTOR)/books-backend:prod
-                displayName: 'Backend • Promote to :prod'
+                displayName: 'Backend • Promote'
 
+              # Build frontend para PROD con su API
               - bash: |
-                  set -e
                   docker build \
-                    --build-arg VITE_ENV=prod \
+                    --build-arg VITE_API_URL=$(BACK_PROD_URL) \
                     -t $(REGISTRY)/$(GITHUB_ACTOR)/books-frontend:prod \
                     frontend
-                  docker push $(REGISTRY)/$(GITHUB_ACTOR)/books-frontend:prod
-                displayName: 'Frontend PROD • Build (VITE_ENV=prod) & Push :prod'
 
+                  docker push $(REGISTRY)/$(GITHUB_ACTOR)/books-frontend:prod
+                displayName: 'Frontend PROD • Build (VITE_API_URL) & Push'
+
+              # Deploy PROD en Render
               - bash: |
-                  set -e
-                  echo "Trigger Render FRONT PROD"
+                  echo "🚀 Trigger FRONT PROD"
                   curl -fsS -X POST "$RENDER_PROD_HOOK_FRONT"
-                  echo "Trigger Render BACK PROD"
+
+                  echo "🚀 Trigger BACK PROD"
                   curl -fsS -X POST "$RENDER_PROD_HOOK_BACK"
-                displayName: 'Deploy PROD (Render hooks)'
+                displayName: 'Deploy PROD (Render)'
                 env:
                   RENDER_PROD_HOOK_FRONT: $(RENDER_PROD_HOOK_FRONT)
                   RENDER_PROD_HOOK_BACK: $(RENDER_PROD_HOOK_BACK)

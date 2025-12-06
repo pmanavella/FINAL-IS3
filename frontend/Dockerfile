@@ -1,26 +1,4 @@
 # Etapa 1: build
-# FROM node:20-alpine AS build
-
-# WORKDIR /app
-
-# COPY package*.json ./
-# RUN npm install
-
-# COPY . .
-# RUN npm run build
-
-# Etapa 2: nginx para servir archivos estáticos
-# FROM nginx:alpine
-
-# COPY --from=build /app/dist /usr/share/nginx/html
-
-# EXPOSE 80
-
-# CMD ["nginx", "-g", "daemon off;"]
-
-# NEW
-
-# Etapa 1: build
 FROM node:20-alpine AS build
 WORKDIR /app
 
@@ -29,9 +7,12 @@ RUN npm ci
 
 # Copia resto del código
 COPY . .
-# Si necesitás apuntar a una API distinta por build: ARG VITE_API_BASE
-# RUN VITE_API_BASE=$VITE_API_BASE npm run build
-RUN npm run build
+
+# --- INYECTAR VITE_API_URL EN EL BUILD ---
+ARG VITE_API_URL
+ENV VITE_API_URL=${VITE_API_URL}
+# Vite lee import.meta.env.VITE_API_URL en tiempo de build
+RUN VITE_API_URL=$VITE_API_URL npm run build
 
 # Etapa 2: nginx para servir estáticos
 FROM nginx:alpine
