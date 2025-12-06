@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites name="jest tests" tests="60" failures="0" errors="0" time="0.926">
-  <testsuite name="undefined" errors="0" failures="0" skipped="0" timestamp="2025-12-03T21:31:05" time="0.316" tests="14">
-    <testcase classname=" list ok" name=" list ok" time="0.003">
+<testsuites name="jest tests" tests="60" failures="0" errors="0" time="1.05">
+  <testsuite name="undefined" errors="0" failures="0" skipped="0" timestamp="2025-12-06T21:12:17" time="0.366" tests="14">
+    <testcase classname=" list ok" name=" list ok" time="0.004">
     </testcase>
     <testcase classname=" get ok" name=" get ok" time="0.001">
     </testcase>
     <testcase classname=" get bad id" name=" get bad id" time="0.005">
     </testcase>
-    <testcase classname=" get not found" name=" get not found" time="0">
+    <testcase classname=" get not found" name=" get not found" time="0.001">
     </testcase>
     <testcase classname=" create ok" name=" create ok" time="0">
     </testcase>
@@ -15,99 +15,111 @@
     </testcase>
     <testcase classname=" update ok" name=" update ok" time="0">
     </testcase>
-    <testcase classname=" update no id" name=" update no id" time="0.001">
+    <testcase classname=" update no id" name=" update no id" time="0">
     </testcase>
-    <testcase classname=" remove ok" name=" remove ok" time="0">
+    <testcase classname=" remove ok" name=" remove ok" time="0.001">
     </testcase>
     <testcase classname=" remove no id" name=" remove no id" time="0.001">
     </testcase>
     <testcase classname=" create variantes 0" name=" create variantes 0" time="0">
     </testcase>
-    <testcase classname=" create variantes 1" name=" create variantes 1" time="0">
+    <testcase classname=" create variantes 1" name=" create variantes 1" time="0.001">
     </testcase>
-    <testcase classname=" create variantes 2" name=" create variantes 2" time="0.001">
+    <testcase classname=" create variantes 2" name=" create variantes 2" time="0">
     </testcase>
     <testcase classname=" create variantes 3" name=" create variantes 3" time="0">
     </testcase>
   </testsuite>
-  <testsuite name="SonarCloud backend dummy test" errors="0" failures="0" skipped="0" timestamp="2025-12-03T21:31:05" time="0.029" tests="1">
+  <testsuite name="SonarCloud backend dummy test" errors="0" failures="0" skipped="0" timestamp="2025-12-06T21:12:17" time="0.027" tests="1">
     <testcase classname="SonarCloud backend dummy test dummy ok" name="SonarCloud backend dummy test dummy ok" time="0.001">
     </testcase>
   </testsuite>
-  <testsuite name="undefined" errors="0" failures="0" skipped="0" timestamp="2025-12-03T21:31:05" time="0.508" tests="6">
-    <testcase classname=" sale ok" name=" sale ok" time="0.048">
+  <testsuite name="undefined" errors="0" failures="0" skipped="0" timestamp="2025-12-06T21:12:17" time="0.582" tests="6">
+    <testcase classname=" sale ok" name=" sale ok" time="0.038">
     </testcase>
-    <testcase classname=" sale 422" name=" sale 422" time="0.007">
+    <testcase classname=" sale 422" name=" sale 422" time="0.009">
     </testcase>
-    <testcase classname=" health" name=" health" time="0.001">
+    <testcase classname=" health" name=" health" time="0.002">
     </testcase>
     <testcase classname=" table sales 0" name=" table sales 0" time="0.002">
     </testcase>
-    <testcase classname=" table sales 1" name=" table sales 1" time="0.009">
+    <testcase classname=" table sales 1" name=" table sales 1" time="0.002">
     </testcase>
     <testcase classname=" table sales 2" name=" table sales 2" time="0.001">
     </testcase>
   </testsuite>
-  <testsuite name="undefined" errors="0" failures="0" skipped="0" timestamp="2025-12-03T21:31:05" time="0.519" tests="8">
-    <testcase classname=" list" name=" list" time="0.033">
+  <testsuite name="undefined" errors="0" failures="0" skipped="0" timestamp="2025-12-06T21:12:17" time="0.6" tests="15">
+    <testcase classname=" GET /api/books 200" name=" GET /api/books 200" time="0.019">
     </testcase>
-    <testcase classname=" create ok" name=" create ok" time="0.011">
+    <testcase classname=" GET /api/books/:id 200" name=" GET /api/books/:id 200" time="0.002">
     </testcase>
-    <testcase classname=" create 422" name=" create 422" time="0.002">
+    <testcase classname=" GET /api/books/:id 404" name=" GET /api/books/:id 404" time="0.002">
     </testcase>
-    <testcase classname=" update ok" name=" update ok" time="0.002">
+    <testcase classname=" POST /api/books 201" name=" POST /api/books 201" time="0.011">
     </testcase>
-    <testcase classname=" delete ok" name=" delete ok" time="0.002">
-    </testcase>
-    <testcase classname=" get /api/loans" name=" get /api/loans" time="0.002">
-    </testcase>
-    <testcase classname=" post /api/loans" name=" post /api/loans" time="0.014">
-    </testcase>
-    <testcase classname=" put /api/loans/1" name=" put /api/loans/1" time="0.015">
-    </testcase>
-  </testsuite>
-  <testsuite name="undefined" errors="0" failures="0" skipped="0" timestamp="2025-12-03T21:31:05" time="0.533" tests="15">
-    <testcase classname=" GET /api/books 200" name=" GET /api/books 200" time="0.022">
-    </testcase>
-    <testcase classname=" GET /api/books/:id 200" name=" GET /api/books/:id 200" time="0.003">
-    </testcase>
-    <testcase classname=" GET /api/books/:id 404" name=" GET /api/books/:id 404" time="0.005">
-    </testcase>
-    <testcase classname=" POST /api/books 201" name=" POST /api/books 201" time="0.013">
-    </testcase>
-    <testcase classname=" POST /api/books 422" name=" POST /api/books 422" time="0.002">
+    <testcase classname=" POST /api/books 422" name=" POST /api/books 422" time="0.003">
     </testcase>
     <testcase classname=" PUT /api/books/:id 200" name=" PUT /api/books/:id 200" time="0.002">
     </testcase>
-    <testcase classname=" DELETE /api/books/:id 200" name=" DELETE /api/books/:id 200" time="0.001">
+    <testcase classname=" DELETE /api/books/:id 200" name=" DELETE /api/books/:id 200" time="0.002">
     </testcase>
-    <testcase classname=" content-type json /api/books" name=" content-type json /api/books" time="0.001">
+    <testcase classname=" content-type json /api/books" name=" content-type json /api/books" time="0.002">
     </testcase>
     <testcase classname=" content-type json /api/books/1" name=" content-type json /api/books/1" time="0.003">
     </testcase>
     <testcase classname=" content-type json /api/books/9" name=" content-type json /api/books/9" time="0.001">
     </testcase>
-    <testcase classname=" content-type json /api/books" name=" content-type json /api/books" time="0.02">
+    <testcase classname=" content-type json /api/books" name=" content-type json /api/books" time="0.002">
     </testcase>
-    <testcase classname=" post /api/books -&gt; { title: &apos;A&apos; }" name=" post /api/books -&gt; { title: &apos;A&apos; }" time="0.003">
+    <testcase classname=" post /api/books -&gt; { title: &apos;A&apos; }" name=" post /api/books -&gt; { title: &apos;A&apos; }" time="0.001">
     </testcase>
     <testcase classname=" post /api/books -&gt; {}" name=" post /api/books -&gt; {}" time="0.003">
     </testcase>
-    <testcase classname=" put /api/books/1 -&gt; { title: &apos;B&apos; }" name=" put /api/books/1 -&gt; { title: &apos;B&apos; }" time="0.003">
+    <testcase classname=" put /api/books/1 -&gt; { title: &apos;B&apos; }" name=" put /api/books/1 -&gt; { title: &apos;B&apos; }" time="0.001">
     </testcase>
-    <testcase classname=" delete /api/books/1 -&gt; null" name=" delete /api/books/1 -&gt; null" time="0.002">
+    <testcase classname=" delete /api/books/1 -&gt; null" name=" delete /api/books/1 -&gt; null" time="0.004">
     </testcase>
   </testsuite>
-  <testsuite name="Books API" errors="0" failures="0" skipped="0" timestamp="2025-12-03T21:31:05" time="0.589" tests="8">
-    <testcase classname="Books API GET /api/books devuelve lista" name="Books API GET /api/books devuelve lista" time="0.014">
+  <testsuite name="undefined" errors="0" failures="0" skipped="0" timestamp="2025-12-06T21:12:17" time="0.561" tests="8">
+    <testcase classname=" list" name=" list" time="0.018">
     </testcase>
-    <testcase classname="Books API GET /books también funciona (ruta alternativa)" name="Books API GET /books también funciona (ruta alternativa)" time="0.004">
+    <testcase classname=" create ok" name=" create ok" time="0.007">
+    </testcase>
+    <testcase classname=" create 422" name=" create 422" time="0.002">
+    </testcase>
+    <testcase classname=" update ok" name=" update ok" time="0.014">
+    </testcase>
+    <testcase classname=" delete ok" name=" delete ok" time="0.002">
+    </testcase>
+    <testcase classname=" get /api/loans" name=" get /api/loans" time="0.002">
+    </testcase>
+    <testcase classname=" post /api/loans" name=" post /api/loans" time="0.012">
+    </testcase>
+    <testcase classname=" put /api/loans/1" name=" put /api/loans/1" time="0.002">
+    </testcase>
+  </testsuite>
+  <testsuite name="Loans &amp; Sales" errors="0" failures="0" skipped="0" timestamp="2025-12-06T21:12:17" time="0.675" tests="5">
+    <testcase classname="Loans &amp; Sales POST /api/books/:id/loan falla si sin stock" name="Loans &amp; Sales POST /api/books/:id/loan falla si sin stock" time="0.017">
+    </testcase>
+    <testcase classname="Loans &amp; Sales POST /api/books/:id/loan OK" name="Loans &amp; Sales POST /api/books/:id/loan OK" time="0.002">
+    </testcase>
+    <testcase classname="Loans &amp; Sales POST /api/books/:id/sell stock insuficiente" name="Loans &amp; Sales POST /api/books/:id/sell stock insuficiente" time="0.001">
+    </testcase>
+    <testcase classname="Loans &amp; Sales POST /api/books/:id/sell OK" name="Loans &amp; Sales POST /api/books/:id/sell OK" time="0.003">
+    </testcase>
+    <testcase classname="Loans &amp; Sales GET /api/loans y /api/sales listan" name="Loans &amp; Sales GET /api/loans y /api/sales listan" time="0.004">
+    </testcase>
+  </testsuite>
+  <testsuite name="Books API" errors="0" failures="0" skipped="0" timestamp="2025-12-06T21:12:17" time="0.686" tests="8">
+    <testcase classname="Books API GET /api/books devuelve lista" name="Books API GET /api/books devuelve lista" time="0.013">
+    </testcase>
+    <testcase classname="Books API GET /books también funciona (ruta alternativa)" name="Books API GET /books también funciona (ruta alternativa)" time="0.003">
     </testcase>
     <testcase classname="Books API GET /api/books filtra por q y ordena" name="Books API GET /api/books filtra por q y ordena" time="0.002">
     </testcase>
     <testcase classname="Books API POST /api/books valida faltantes" name="Books API POST /api/books valida faltantes" time="0.008">
     </testcase>
-    <testcase classname="Books API POST /api/books crea libro" name="Books API POST /api/books crea libro" time="0.002">
+    <testcase classname="Books API POST /api/books crea libro" name="Books API POST /api/books crea libro" time="0.003">
     </testcase>
     <testcase classname="Books API PUT /api/books/:id actualiza" name="Books API PUT /api/books/:id actualiza" time="0.002">
     </testcase>
@@ -116,19 +128,7 @@
     <testcase classname="Books API DELETE /api/books/:id 404 si no existe" name="Books API DELETE /api/books/:id 404 si no existe" time="0.001">
     </testcase>
   </testsuite>
-  <testsuite name="Loans &amp; Sales" errors="0" failures="0" skipped="0" timestamp="2025-12-03T21:31:05" time="0.603" tests="5">
-    <testcase classname="Loans &amp; Sales POST /api/books/:id/loan falla si sin stock" name="Loans &amp; Sales POST /api/books/:id/loan falla si sin stock" time="0.019">
-    </testcase>
-    <testcase classname="Loans &amp; Sales POST /api/books/:id/loan OK" name="Loans &amp; Sales POST /api/books/:id/loan OK" time="0.003">
-    </testcase>
-    <testcase classname="Loans &amp; Sales POST /api/books/:id/sell stock insuficiente" name="Loans &amp; Sales POST /api/books/:id/sell stock insuficiente" time="0.002">
-    </testcase>
-    <testcase classname="Loans &amp; Sales POST /api/books/:id/sell OK" name="Loans &amp; Sales POST /api/books/:id/sell OK" time="0.002">
-    </testcase>
-    <testcase classname="Loans &amp; Sales GET /api/loans y /api/sales listan" name="Loans &amp; Sales GET /api/loans y /api/sales listan" time="0.004">
-    </testcase>
-  </testsuite>
-  <testsuite name="Health" errors="0" failures="0" skipped="0" timestamp="2025-12-03T21:31:05" time="0.677" tests="3">
+  <testsuite name="Health" errors="0" failures="0" skipped="0" timestamp="2025-12-06T21:12:17" time="0.747" tests="3">
     <testcase classname="Health GET /health -&gt; 200" name="Health GET /health -&gt; 200" time="0.013">
     </testcase>
     <testcase classname=" suma tonta" name=" suma tonta" time="0">
