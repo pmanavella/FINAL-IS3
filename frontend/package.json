@@ -9,7 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest",
-    "test:cov": "vitest run --coverage",
+    "test:cov": "vitest run --coverage.enabled --coverage.provider=v8 --coverage.reporter=cobertura --coverage.reporter=text",
     "test:watch": "vitest",
     "coverage": "vitest run --coverage",
     "cy:open": "cypress open",
