@@ -220,10 +220,7 @@ stages:
 - stage: PROD
   displayName: 'PROD: Approval → Promote & Deploy'
   dependsOn: QA
-  condition: and(succeeded(),
-                 eq(variables.DEPLOY_RENDER, 'true'),
-                 ne(variables['RENDER_PROD_HOOK_FRONT'], ''),
-                 ne(variables['RENDER_PROD_HOOK_BACK'], ''))
+  condition: and(succeeded(), eq(variables.DEPLOY_RENDER, 'true'))
   jobs:
     - deployment: promote_prod
       displayName: 'Promote to :prod + Deploy PROD'
@@ -235,6 +232,17 @@ stages:
               - checkout: self
                 clean: true
 
+              - bash: |
+                  set -e
+                  if [ -z "$RENDER_PROD_HOOK_FRONT" ] || [ -z "$RENDER_PROD_HOOK_BACK" ]; then
+                    echo "Faltan hooks de PROD. Se omite el deploy a PROD."
+                    exit 0
+                  fi
+                displayName: 'Precheck hooks PROD'
+                env:
+                  RENDER_PROD_HOOK_FRONT: $(RENDER_PROD_HOOK_FRONT)
+                  RENDER_PROD_HOOK_BACK: $(RENDER_PROD_HOOK_BACK)
+              
               - bash: |
                   set -e
                   echo "$GHCR_TOKEN" | docker login "$REGISTRY" -u "$GHCR_USERNAME" --password-stdin
